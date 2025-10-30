@@ -20,12 +20,12 @@ class InvestingScraper(BaseScraper):
     Supports multiple cryptocurrencies (BTC, ETH, ADA, SOL, etc.)
     """
 
-    def __init__(self, timeout: int = 30000, headless: bool = True):
+    def __init__(self, timeout: int = 60000, headless: bool = True):
         """
         Initialize investing.com scraper.
 
         Args:
-            timeout: Page load timeout in milliseconds
+            timeout: Page load timeout in milliseconds (default: 60000)
             headless: Run browser in headless mode
         """
         super().__init__(timeout=timeout, headless=headless)
@@ -79,14 +79,18 @@ class InvestingScraper(BaseScraper):
         logger.info(f"Scraping {crypto_identifier} technical analysis from: {target_url}")
 
         # Use base scraper to fetch content
+        # Try to wait for technical indicators table, but don't fail if it times out
         result = self.scrape_url(
             target_url,
-            wait_for_selector="table.technicalIndicatorsTbl"  # Wait for technical indicators table
+            wait_for_selector=None  # Don't wait for specific selector, just load the page
         )
 
         if not result.get("success"):
             logger.error(f"Failed to scrape {target_url}: {result.get('error')}")
             return result
+
+        # Log if we got the content
+        logger.info(f"Page loaded, content length: {result.get('contentLength', 0)} chars")
 
         # Parse the markdown content
         parsed_data = TechnicalAnalysisParser.parse_markdown(
@@ -163,7 +167,7 @@ class InvestingScraper(BaseScraper):
 def scrape_crypto_technical(
     crypto: str = "ETH",
     url: Optional[str] = None,
-    timeout: int = 30000,
+    timeout: int = 60000,
     cache_bust: bool = False,
     headless: bool = True
 ) -> Dict[str, Any]:

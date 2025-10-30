@@ -116,10 +116,13 @@ class BaseScraper(ABC):
 
             # Wait for specific selector if provided
             if wait_for_selector:
-                self.page.wait_for_selector(wait_for_selector, timeout=self.timeout)
+                try:
+                    self.page.wait_for_selector(wait_for_selector, timeout=self.timeout)
+                except Exception as e:
+                    logger.warning(f"Selector '{wait_for_selector}' not found, continuing anyway: {e}")
 
-            # Additional wait for dynamic content
-            self.page.wait_for_timeout(2000)
+            # Additional wait for dynamic content to load
+            self.page.wait_for_timeout(5000)
 
             # Get page content
             html_content = self.page.content()
