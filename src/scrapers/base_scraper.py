@@ -141,7 +141,8 @@ class BaseScraper(ABC):
             self.page.set_default_timeout(self.timeout)
 
             logger.info(f"Navigating to {url}")
-            self.page.goto(url, wait_until="networkidle")
+            # Use domcontentloaded instead of networkidle - more forgiving
+            self.page.goto(url, wait_until="domcontentloaded")
 
             # Check if we hit Cloudflare challenge
             title = self.page.title()
@@ -156,11 +157,13 @@ class BaseScraper(ABC):
             if wait_for_selector:
                 try:
                     self.page.wait_for_selector(wait_for_selector, timeout=self.timeout)
+                    logger.info(f"Selector '{wait_for_selector}' found")
                 except Exception as e:
                     logger.warning(f"Selector '{wait_for_selector}' not found, continuing anyway: {e}")
 
-            # Additional wait for dynamic content to load
-            self.page.wait_for_timeout(5000)
+            # Additional wait for dynamic content to load (JavaScript rendering)
+            logger.info("Waiting for JavaScript to render content...")
+            self.page.wait_for_timeout(8000)  # Increased from 5s to 8s
 
             # Get page content
             html_content = self.page.content()

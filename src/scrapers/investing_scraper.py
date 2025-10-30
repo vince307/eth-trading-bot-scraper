@@ -79,10 +79,10 @@ class InvestingScraper(BaseScraper):
         logger.info(f"Scraping {crypto_identifier} technical analysis from: {target_url}")
 
         # Use base scraper to fetch content
-        # Try to wait for technical indicators table, but don't fail if it times out
+        # Wait for technical indicators table to ensure JavaScript has rendered
         result = self.scrape_url(
             target_url,
-            wait_for_selector=None  # Don't wait for specific selector, just load the page
+            wait_for_selector="table.technicalIndicatorsTbl"  # Wait for the indicators table
         )
 
         if not result.get("success"):
