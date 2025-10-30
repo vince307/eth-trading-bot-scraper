@@ -49,13 +49,15 @@ class BaseScraper(ABC):
     def _init_browser(self) -> None:
         """Initialize Playwright browser."""
         if self.browser is None:
-            playwright = sync_playwright().start()
-            self.browser = playwright.chromium.launch(
+            self.playwright = sync_playwright().start()
+            self.browser = self.playwright.chromium.launch(
                 headless=self.headless,
                 args=[
                     '--disable-blink-features=AutomationControlled',
                     '--disable-dev-shm-usage',
-                    '--no-sandbox'
+                    '--no-sandbox',
+                    '--disable-web-security',
+                    '--disable-features=IsolateOrigins,site-per-process'
                 ]
             )
             logger.info("Browser initialized")
@@ -65,7 +67,10 @@ class BaseScraper(ABC):
         if self.browser:
             self.browser.close()
             self.browser = None
-            logger.info("Browser closed")
+        if hasattr(self, 'playwright') and self.playwright:
+            self.playwright.stop()
+            self.playwright = None
+        logger.info("Browser closed")
 
     def scrape_url(self, url: str, wait_for_selector: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -81,30 +86,54 @@ class BaseScraper(ABC):
         try:
             self._init_browser()
 
-            # Create new page with context
+            # Create new page with context - more realistic browser fingerprint
             context = self.browser.new_context(
                 user_agent=self.user_agent,
                 viewport={'width': 1920, 'height': 1080},
                 locale='en-US',
                 timezone_id='America/New_York',
                 extra_http_headers={
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Accept-Encoding': 'gzip, deflate, br',
-                    'DNT': '1',
                     'Connection': 'keep-alive',
                     'Upgrade-Insecure-Requests': '1',
                     'Sec-Fetch-Dest': 'document',
                     'Sec-Fetch-Mode': 'navigate',
                     'Sec-Fetch-Site': 'none',
+                    'Sec-Fetch-User': '?1',
                     'Cache-Control': 'max-age=0'
                 }
             )
 
-            # Add script to remove webdriver property
+            # Add comprehensive stealth scripts to bypass detection
             context.add_init_script("""
+                // Remove webdriver flag
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined
+                });
+
+                // Add chrome object
+                window.chrome = {
+                    runtime: {}
+                };
+
+                // Mock permissions
+                const originalQuery = window.navigator.permissions.query;
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                        Promise.resolve({ state: Notification.permission }) :
+                        originalQuery(parameters)
+                );
+
+                // Mock plugins
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [1, 2, 3, 4, 5]
+                });
+
+                // Mock languages
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en']
                 });
             """)
 
@@ -112,7 +141,16 @@ class BaseScraper(ABC):
             self.page.set_default_timeout(self.timeout)
 
             logger.info(f"Navigating to {url}")
-            self.page.goto(url, wait_until="domcontentloaded")
+            self.page.goto(url, wait_until="networkidle")
+
+            # Check if we hit Cloudflare challenge
+            title = self.page.title()
+            if "Just a moment" in title or "Cloudflare" in title:
+                logger.warning("Cloudflare challenge detected, waiting for it to pass...")
+                self.page.wait_for_timeout(10000)  # Wait 10 seconds for challenge
+                title = self.page.title()  # Check again
+                if "Just a moment" in title:
+                    logger.error("Cloudflare challenge did not pass")
 
             # Wait for specific selector if provided
             if wait_for_selector:
