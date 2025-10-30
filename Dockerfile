@@ -4,12 +4,20 @@ FROM python:3.12-slim
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies required by Playwright
+# Copy requirements first (for better caching)
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Playwright system dependencies manually (without --with-deps)
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     ca-certificates \
     fonts-liberation \
+    fonts-noto-color-emoji \
+    fonts-unifont \
     libappindicator3-1 \
     libasound2 \
     libatk-bridge2.0-0 \
@@ -25,17 +33,12 @@ RUN apt-get update && apt-get install -y \
     libxcomposite1 \
     libxdamage1 \
     libxrandr2 \
+    libxshmfence1 \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first (for better caching)
-COPY requirements.txt .
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install Playwright browsers
-RUN playwright install chromium --with-deps
+# Install Playwright Chromium browser only (without system deps flag)
+RUN playwright install chromium
 
 # Copy application code
 COPY . .
