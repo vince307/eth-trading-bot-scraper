@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/kamilp/Dev/2025/eth-trading-bot-api/**)",
+      "Bash(pip3:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Read(//Users/kamilp/Downloads/**)",
+      "Bash(chmod:*)",
+      "WebSearch"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

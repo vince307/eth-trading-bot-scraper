@@ -1,0 +1,84 @@
+# Railway Ignore File
+# Files and directories to exclude from Railway builds
+# This improves build speed and reduces deployment size
+
+# Development files
+.git/
+.github/
+.vscode/
+.idea/
+
+# Documentation (not needed in production)
+*.md
+!README.md
+docs/
+
+# Test files
+test_*.py
+*_test.py
+debug_*.py
+tests/
+__tests__/
+
+# Python cache and artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# Virtual environments (use Docker image Python, not local venv)
+venv/
+env/
+ENV/
+.venv/
+
+# Environment files (use Railway variables instead)
+.env
+.env.local
+.env.*.local
+.env.example
+.env.scraper.example
+
+# Logs (Railway has its own logging)
+*.log
+logs/
+scraper_cron.log
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Playwright local installation (Docker image has it)
+.playwright/
+
+# Vercel deployment files (not needed on Railway)
+.vercel/
+vercel.json
+
+# Node modules (not needed for Python project)
+node_modules/
+package-lock.json
+
+# IDE files
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Git files
+.gitignore
+.gitattributes
+
+# CI/CD files (not needed in Railway build)
+.github/
+.gitlab-ci.yml
+.travis.yml

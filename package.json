@@ -1,0 +1,8 @@
+{
+  "name": "eth-trading-bot-scraper",
+  "version": "1.0.0",
+  "description": "Python web scraping application for ETH trading bot technical analysis",
+  "keywords": ["ethereum", "scraping", "trading", "technical-analysis"],
+  "author": "",
+  "license": "ISC"
+}
