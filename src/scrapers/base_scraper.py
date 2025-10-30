@@ -169,6 +169,23 @@ class BaseScraper(ABC):
             html_content = self.page.content()
             title = self.page.title()
 
+            # Debug: Check for various table selectors
+            try:
+                table_selectors = [
+                    "table.technicalIndicatorsTbl",
+                    "table[class*='technical']",
+                    "table[class*='indicator']",
+                    ".technical-indicators",
+                    "#techinalIndicators",
+                    "table"
+                ]
+                for selector in table_selectors:
+                    count = self.page.locator(selector).count()
+                    if count > 0:
+                        logger.info(f"Found {count} element(s) with selector: {selector}")
+            except Exception as e:
+                logger.debug(f"Error checking selectors: {e}")
+
             logger.info(f"Successfully scraped {url} - Title: {title}")
 
             # Convert HTML to markdown
