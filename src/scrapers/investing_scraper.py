@@ -92,9 +92,9 @@ class InvestingScraper(BaseScraper):
         # Log if we got the content
         logger.info(f"Page loaded, content length: {result.get('contentLength', 0)} chars")
 
-        # Debug: Log first 1000 chars of markdown to see what we got
-        markdown_preview = result["markdown"][:1000] if result.get("markdown") else ""
-        logger.debug(f"Markdown preview: {markdown_preview}")
+        # Debug: Log first 2000 chars of markdown to see what we got
+        markdown_preview = result["markdown"][:2000] if result.get("markdown") else ""
+        logger.info(f"Markdown preview (first 2000 chars): {markdown_preview}")
 
         # Parse the markdown content
         parsed_data = TechnicalAnalysisParser.parse_markdown(
