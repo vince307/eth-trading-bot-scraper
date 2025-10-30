@@ -4,6 +4,9 @@ FROM python:3.12-slim
 # Set working directory
 WORKDIR /app
 
+# Set Playwright browser path BEFORE installing
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
 # Copy requirements first (for better caching)
 COPY requirements.txt .
 
@@ -37,7 +40,7 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright Chromium browser only (without system deps flag)
+# Install Playwright Chromium browser (will use PLAYWRIGHT_BROWSERS_PATH)
 RUN playwright install chromium
 
 # Copy application code
@@ -48,7 +51,6 @@ RUN mkdir -p /app/logs
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # Default command (can be overridden)
 CMD ["python", "scraper_cron.py"]
