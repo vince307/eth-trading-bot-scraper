@@ -56,3 +56,5 @@ logs/
 .pytest_cache/
 .coverage
 htmlcov/
+taapi_test_results.txt
+test_results_professional.txt

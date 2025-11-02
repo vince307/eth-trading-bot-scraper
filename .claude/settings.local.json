@@ -7,7 +7,20 @@
       "Bash(python:*)",
       "Read(//Users/kamilp/Downloads/**)",
       "Bash(chmod:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(tee:*)",
+      "WebFetch(domain:docs.coingecko.com)",
+      "Bash(.env)",
+      "Bash(vercel --version:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel env:*)",
+      "Bash(vercel:*)",
+      "Bash(cat:*)",
+      "Bash(curl:*)",
+      "Bash(printf:*)",
+      "Bash(time curl -s \"https://eth-trading-bot-scraper.vercel.app/api/scrape?crypto=ETH&save=true\")",
+      "Bash(awk:*)",
+      "Bash(xargs kill:*)"
     ],
     "deny": [],
     "ask": []

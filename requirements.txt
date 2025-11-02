@@ -1,12 +1,12 @@
-# Web scraping
-beautifulsoup4==4.12.3
-lxml==5.1.0
-markdownify==0.12.1
-playwright==1.48.0
+# HTTP Requests
 requests==2.31.0
 
 # Database
 supabase==2.9.0
+
+# Technical Analysis
+# Using 'ta' instead of 'pandas-ta' - much lighter for Vercel (pandas-ta is 150MB+)
+ta==0.11.0
 
 # Utilities
 python-dotenv==1.0.1

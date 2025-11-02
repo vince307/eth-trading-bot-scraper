@@ -1,6 +1,6 @@
 """
-Vercel serverless function for scraping cryptocurrency technical analysis
-Endpoint: GET /api/scrape?crypto=BTC&url=...&save=true&fresh=true
+Vercel serverless function for fetching cryptocurrency technical analysis
+Endpoint: GET /api/scrape?crypto=BTC&save=true&exchange=binance&interval=1h
 """
 import os
 import sys
@@ -12,7 +12,8 @@ from urllib.parse import urlparse, parse_qs
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from src.scrapers.vercel_scraper import VercelScraper
+from src.api.coingecko_client import CoinGeckoClient
+from src.api.indicators_calculator import IndicatorsCalculator
 from src.database.supabase_client import SupabaseClient
 from src.utils.crypto_config import is_supported_crypto, get_supported_symbols
 
@@ -35,49 +36,94 @@ class handler(BaseHTTPRequestHandler):
             query_params = parse_qs(parsed_url.query)
 
             # Extract parameters
-            crypto = query_params.get('crypto', [None])[0]
-            url = query_params.get('url', [None])[0]
+            crypto = query_params.get('crypto', ['BTC'])[0]
             save_to_db = query_params.get('save', ['false'])[0].lower() == 'true'
-            cache_bust = query_params.get('fresh', ['false'])[0].lower() == 'true'
+            exchange = query_params.get('exchange', ['binance'])[0]
+            interval = query_params.get('interval', ['1h'])[0]
 
-            # Validate crypto parameter if provided
-            if crypto and not url:
-                if not is_supported_crypto(crypto):
-                    supported = get_supported_symbols()
-                    self._send_error_response(
-                        400,
-                        f"Unsupported cryptocurrency: {crypto}",
-                        f"Supported cryptocurrencies: {', '.join(supported)}"
-                    )
-                    return
-
-            logger.info(f"Processing scrape request - Crypto: {crypto}, URL: {url}, Save: {save_to_db}, Fresh: {cache_bust}")
-
-            # Initialize Vercel-optimized scraper
-            # Tries Playwright first, falls back to HTTP if not available
-            scraper = VercelScraper(timeout=60000)
-
-            # Scrape the page
-            result = scraper.scrape_crypto_technical_analysis(
-                crypto=crypto,
-                url=url,
-                cache_bust=cache_bust
-            )
-
-            if not result.get("success"):
+            # Validate crypto parameter
+            if not is_supported_crypto(crypto):
+                supported = get_supported_symbols()
                 self._send_error_response(
-                    500,
-                    "Failed to scrape data",
-                    result.get("error", "Unknown error")
+                    400,
+                    f"Unsupported cryptocurrency: {crypto}",
+                    f"Supported cryptocurrencies: {', '.join(supported)}"
                 )
                 return
 
+            logger.info(f"Fetching technical analysis - Crypto: {crypto}, Save: {save_to_db}")
+
+            # Initialize clients
+            coingecko_client = CoinGeckoClient()
+            calculator = IndicatorsCalculator()
+
+            # Step 1: Fetch price data from CoinGecko (fast, ~1 second)
+            logger.info("Fetching price data from CoinGecko...")
+            price_result = coingecko_client.get_price_data(crypto)
+
+            if not price_result.get("success"):
+                self._send_error_response(
+                    500,
+                    "Failed to fetch price data from CoinGecko",
+                    price_result.get('error', 'Unknown error')
+                )
+                return
+
+            price_data = price_result.get("data")
+            logger.info(f"Price data fetched: ${price_data.get('price'):,.2f}")
+
+            # Step 2: Fetch OHLC data from CoinGecko (fast, ~1 second)
+            # Using 365 days to get enough candles for MA200 calculation
+            logger.info("Fetching OHLC data from CoinGecko...")
+            ohlc_result = coingecko_client.get_ohlc_data(crypto, days=365)
+
+            if not ohlc_result.get("success"):
+                self._send_error_response(
+                    500,
+                    "Failed to fetch OHLC data from CoinGecko",
+                    ohlc_result.get('error', 'Unknown error')
+                )
+                return
+
+            ohlc_data = ohlc_result.get("data")
+            logger.info(f"OHLC data fetched: {len(ohlc_data)} candles")
+
+            # Step 3: Calculate technical indicators using pandas-ta (fast, <1 second)
+            logger.info("Calculating technical indicators...")
+            try:
+                indicators_data = calculator.calculate_indicators(ohlc_data, crypto)
+            except Exception as e:
+                self._send_error_response(
+                    500,
+                    "Failed to calculate technical indicators",
+                    str(e)
+                )
+                return
+
+            # Step 4: Merge price data with calculated indicators
+            indicators_data["price"] = price_data.get("price", 0.0)
+            indicators_data["priceChange"] = price_data.get("priceChange24h", 0.0)
+            indicators_data["priceChangePercent"] = price_data.get("priceChangePercent24h", 0.0)
+            indicators_data["marketData"] = {
+                "marketCap": price_data.get("marketCap", 0.0),
+                "volume24h": price_data.get("volume24h", 0.0),
+                "lastUpdated": price_data.get("lastUpdated", 0)
+            }
+            logger.info("Technical indicators calculated and merged successfully")
+
+            result = {
+                "success": True,
+                "data": indicators_data,
+                "source": "coingecko+pandas-ta",
+                "scrapedAt": indicators_data.get("scrapedAt")
+            }
+
             # Save to database if requested
             saved_to_db = False
-            if save_to_db and result.get("parsed"):
+            if save_to_db and result.get("data"):
                 try:
                     db_client = SupabaseClient(use_service_role=True)
-                    saved_to_db = db_client.insert_technical_analysis(result["parsed"])
+                    saved_to_db = db_client.insert_technical_analysis(result["data"])
                     if saved_to_db:
                         logger.info("Data successfully saved to database")
                     else:
@@ -88,24 +134,18 @@ class handler(BaseHTTPRequestHandler):
             # Prepare response matching TypeScript API format
             response_data = {
                 "success": True,
-                "message": f"Technical analysis data fetched and parsed successfully{', and saved to database' if saved_to_db else ''}",
+                "message": f"Technical analysis data fetched successfully from {result['source']}{', and saved to database' if saved_to_db else ''}",
                 "data": {
-                    "raw": {
-                        "url": result["url"],
-                        "title": result["title"],
-                        "content": result["markdown"],
-                        "html": result.get("html", ""),
-                        "contentLength": result["contentLength"],
-                        "scrapedAt": result["scrapedAt"]
-                    },
-                    "parsed": result["parsed"],
-                    "savedToDatabase": saved_to_db
+                    "parsed": result["data"],
+                    "savedToDatabase": saved_to_db,
+                    "source": result["source"],
+                    "metadata": {
+                        "exchange": exchange,
+                        "interval": interval,
+                        "fetchedAt": result["scrapedAt"]
+                    }
                 }
             }
-
-            # Add warning if present (from fallback scraper)
-            if "warning" in result:
-                response_data["warning"] = result["warning"]
 
             self._send_json_response(200, response_data)
 
