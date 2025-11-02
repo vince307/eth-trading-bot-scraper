@@ -78,3 +78,25 @@ SCHEDULED_SCRAPING_DEPLOYMENT.md
 SETUP_NOTES.md
 TAAPI_IMPLEMENTATION_PLAN.md
 VERCEL_PLAYWRIGHT_SOLUTION.md
+
+# Unused deployment configurations (not tracked)
+Dockerfile
+docker-compose.yml
+railway.json
+.railwayignore
+.dockerignore
+.env.scraper.example
+build.sh
+scraper_cron.py
+
+# Test and debugging files (not tracked)
+test_taapi.py
+test_coingecko.py
+test_combined.py
+test_eth_only.py
+test_symbol_issue.py
+test_production_api.py
+test_pandas_ta.py
+check_*.py
+health_check.py
+fetch_all_cryptos.py
